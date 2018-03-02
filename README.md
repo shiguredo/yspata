@@ -1,0 +1,2 @@
+# yspata
+Go utility library
