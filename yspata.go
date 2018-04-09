@@ -1,10 +1,17 @@
 package yspata
 
 import (
+	"bufio"
+	"bytes"
 	"fmt"
+	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
+	"sync"
+	"syscall"
 )
 
 var IsMac = isMac()
@@ -76,23 +83,21 @@ func Warn(format string, arg ...interface{}) {
 	}
 }
 
-type Result struct {
-	Error error
+var OnError func(error, string) = func(err error, msg string) {
+	fmt.Printf("Error: %s\n", msg)
 }
 
-func Eval(err error) *Result {
-	return &Result{Error: err}
-}
-
-func Eval2(_ interface{}, err error) *Result {
-	return &Result{Error: err}
+func onError(err error, format string, arg ...interface{}) {
+	if f := OnError; f != nil {
+		f(err, fmt.Sprintf(format, arg...))
+	}
 }
 
 func FailIf(err error, format string, arg ...interface{}) bool {
 	if err == nil {
 		return true
 	} else {
-		fmt.Printf("Error: %s\n", fmt.Sprintf(format, arg...))
+		onError(err, format, arg...)
 		Fail()
 		return false
 	}
@@ -109,7 +114,7 @@ func Exists(filename string) bool {
 
 func FailIfNotExists(name string) {
 	if !Exists(name) {
-		fmt.Printf("Error: File '%s' is not found\n", name)
+		onError(nil, "File '%s' is not found\n", name)
 		os.Exit(1)
 	}
 }
@@ -132,4 +137,131 @@ func Contains(list []string, s string) bool {
 		}
 	}
 	return false
+}
+
+type CommandResult struct {
+	Command string
+	Args    []string
+	Status  int
+	Stdout  string
+	Stderr  string
+	Error   error
+}
+
+func newCommandResult(cmd string, args []string) *CommandResult {
+	return &CommandResult{Command: cmd, Args: args}
+}
+
+func (r *CommandResult) FailIf(msg string) {
+	FailIf(r.Error, msg)
+}
+
+type CommandContext struct {
+	Command  string
+	Args     []string
+	stdin    io.WriteCloser
+	stdout   io.Reader
+	stderr   io.Reader
+	OnStdin  func(io.WriteCloser)
+	OnStdout func(io.Reader)
+	OnStderr func(io.Reader)
+	exec     *exec.Cmd
+	result   *CommandResult
+}
+
+func (c *CommandContext) Run() *CommandResult {
+	if res := c.Start(); res.Error != nil {
+		return res
+	}
+	return c.Wait()
+}
+
+func (c *CommandContext) Start() (res *CommandResult) {
+	c.result = newCommandResult(c.Command, c.Args)
+	res = c.result
+	c.exec = exec.Command(c.Command, c.Args...)
+
+	if c.OnStdin != nil {
+		stdin, err := c.exec.StdinPipe()
+		if err != nil {
+			res.Error = err
+			return
+		}
+		c.OnStdin(stdin)
+		stdin.Close()
+	}
+
+	stdout, err := c.exec.StdoutPipe()
+	res.Error = err
+	if err != nil {
+		return
+	}
+	c.stdout = stdout
+
+	stderr, err := c.exec.StderrPipe()
+	res.Error = err
+	if err != nil {
+		return
+	}
+	c.stderr = stderr
+
+	return
+}
+
+func (c *CommandContext) Wait() (res *CommandResult) {
+	res = c.result
+	if err := c.exec.Start(); err != nil {
+		res.Error = err
+		return
+	}
+
+	var bufout, buferr bytes.Buffer
+	stdout2 := io.TeeReader(c.stdout, &bufout)
+	stderr2 := io.TeeReader(c.stderr, &buferr)
+
+	go func() {
+		wg := &sync.WaitGroup{}
+		wg.Add(2)
+		go func() {
+			if c.OnStdout != nil {
+				c.OnStdout(stdout2)
+				wg.Done()
+			}
+		}()
+		go func() {
+			if c.OnStderr != nil {
+				c.OnStderr(stderr2)
+				wg.Done()
+			}
+		}()
+		wg.Wait()
+	}()
+
+	err := c.exec.Wait()
+	res.Error = err
+	if err != nil {
+		if err2, ok := err.(*exec.ExitError); ok {
+			if s, ok := err2.Sys().(syscall.WaitStatus); ok {
+				res.Status = s.ExitStatus()
+			}
+		}
+	}
+	return
+}
+
+func Command(cmd string, arg ...string) *CommandContext {
+	return &CommandContext{Command: cmd, Args: arg}
+}
+
+func Commandf(format string, arg ...interface{}) *CommandContext {
+	s := fmt.Sprintf(format, arg...)
+	comps := strings.Split(s, " ")
+	return Command(comps[0], comps[1:]...)
+}
+
+func PrintOutput(r io.Reader) {
+	scanner := bufio.NewScanner(r)
+	for scanner.Scan() {
+		Printf("%s", scanner.Text())
+	}
 }
