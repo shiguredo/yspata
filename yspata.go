@@ -94,8 +94,12 @@ var onError func(error, string) = func(err error, msg string) {
 	fmt.Printf("Error: %s\n", msg)
 }
 
-func onError(err error, format string, arg ...interface{}) {
-	if f := OnError; f != nil {
+func SetOnError(f func(err error, msg string)) {
+	onError = f
+}
+
+func callOnError(err error, format string, arg ...interface{}) {
+	if f := onError; f != nil {
 		f(err, fmt.Sprintf(format, arg...))
 	}
 }
@@ -104,7 +108,7 @@ func FailIf(err error, format string, arg ...interface{}) bool {
 	if err == nil {
 		return true
 	} else {
-		onError(err, format, arg...)
+		callOnError(err, format, arg...)
 		Fail()
 		return false
 	}
@@ -121,7 +125,7 @@ func Exists(filename string) bool {
 
 func FailIfNotExists(name string) {
 	if !Exists(name) {
-		onError(nil, "File '%s' is not found\n", name)
+		callOnError(nil, "File '%s' is not found\n", name)
 		os.Exit(1)
 	}
 }
