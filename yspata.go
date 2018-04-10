@@ -188,6 +188,8 @@ func (c *CommandContext) Run() *CommandResult {
 }
 
 func (c *CommandContext) Start() (res *CommandResult) {
+	Info("%s %s\n", c.Command, strings.Join(c.Args, " "))
+
 	c.result = newCommandResult(c.Command, c.Args)
 	res = c.result
 	c.exec = exec.Command(c.Command, c.Args...)
