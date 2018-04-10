@@ -53,13 +53,14 @@ func PrintLines(arg ...string) {
 }
 
 const (
-	LOG_DEBUG   = 0
-	LOG_VERBOSE = 1
-	LOG_WARN    = 2
-	LOG_SILENT  = 3
+	LOG_DEBUG = iota
+	LOG_VERBOSE
+	LOG_WARN
+	LOG_INFO
+	LOG_SILENT
 )
 
-var logLevel = LOG_WARN
+var logLevel = LOG_INFO
 
 func SetLogLevel(lv int) {
 	logLevel = lv
@@ -83,7 +84,13 @@ func Warn(format string, arg ...interface{}) {
 	}
 }
 
-var OnError func(error, string) = func(err error, msg string) {
+func Info(format string, arg ...interface{}) {
+	if logLevel <= LOG_INFO {
+		fmt.Printf("# %s\n", fmt.Sprintf(format, arg...))
+	}
+}
+
+var onError func(error, string) = func(err error, msg string) {
 	fmt.Printf("Error: %s\n", msg)
 }
 
