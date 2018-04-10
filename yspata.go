@@ -91,7 +91,11 @@ func Info(format string, arg ...interface{}) {
 }
 
 var onError func(error, string) = func(err error, msg string) {
-	fmt.Printf("Error: %s (%s)\n", msg, err.Error())
+	if err != nil {
+		fmt.Printf("Error: %s (%s)\n", msg, err.Error())
+	} else {
+		fmt.Printf("Error: %s\n", msg)
+	}
 }
 
 func SetOnError(f func(err error, msg string)) {
