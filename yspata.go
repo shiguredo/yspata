@@ -135,6 +135,10 @@ func FailIfNotExists(name string) {
 }
 
 func Open(name string) *os.File {
+	return OpenFile(name, os.O_RDONLY, 0644)
+}
+
+func OpenAll(name string) *os.File {
 	return OpenFile(name, os.O_RDWR|os.O_CREATE, 0755)
 }
 
