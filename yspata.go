@@ -139,9 +139,8 @@ func Open(name string) *os.File {
 }
 
 func OpenFile(name string, flags int, perm os.FileMode) *os.File {
-	FailIfNotExists(name)
 	file, err := os.OpenFile(name, flags, perm)
-	FailIf(err, err.Error())
+	FailIf(err, "cannot open file %s", name)
 	return file
 }
 
