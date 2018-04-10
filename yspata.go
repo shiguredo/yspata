@@ -263,7 +263,8 @@ func (c *CommandContext) Wait() (res *CommandResult) {
 }
 
 func Command(cmd string, arg ...string) *CommandContext {
-	return &CommandContext{Command: cmd, Args: arg}
+	return &CommandContext{Command: cmd, Args: arg,
+		OnStdout: PrintOutput, OnStderr: PrintOutput}
 }
 
 func Commandf(format string, arg ...interface{}) *CommandContext {
@@ -280,25 +281,17 @@ func PrintOutput(r io.Reader) {
 }
 
 func Exec(name string, arg ...string) {
-	cmd := Command(name, arg...)
-	cmd.OnStderr = PrintOutput
-	cmd.Run().FailIf("command failed")
+	Command(name, arg...).Run().FailIf("command failed")
 }
 
 func Execf(format string, arg ...interface{}) {
-	cmd := Commandf(format, arg...)
-	cmd.OnStderr = PrintOutput
-	cmd.Run().FailIf("command failed")
+	Commandf(format, arg...).Run().FailIf("command failed")
 }
 
 func ExecIg(name string, arg ...string) {
-	cmd := Command(name, arg...)
-	cmd.OnStderr = PrintOutput
-	cmd.Run()
+	Command(name, arg...).Run()
 }
 
 func ExecIgf(format string, arg ...interface{}) {
-	cmd := Commandf(format, arg...)
-	cmd.OnStderr = PrintOutput
-	cmd.Run()
+	Commandf(format, arg...).Run()
 }
