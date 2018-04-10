@@ -278,3 +278,27 @@ func PrintOutput(r io.Reader) {
 		Printf("%s", scanner.Text())
 	}
 }
+
+func Exec(name string, arg ...string) {
+	cmd := Command(name, arg...)
+	cmd.OnStderr = PrintOutput
+	cmd.Run().FailIf("command failed")
+}
+
+func Execf(format string, arg ...interface{}) {
+	cmd := Commandf(format, arg...)
+	cmd.OnStderr = PrintOutput
+	cmd.Run().FailIf("command failed")
+}
+
+func ExecIg(name string, arg ...string) {
+	cmd := Command(name, arg...)
+	cmd.OnStderr = PrintOutput
+	cmd.Run()
+}
+
+func ExecIgf(format string, arg ...interface{}) {
+	cmd := Commandf(format, arg...)
+	cmd.OnStderr = PrintOutput
+	cmd.Run()
+}
